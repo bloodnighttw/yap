@@ -34,7 +34,6 @@ impl Component for Counter {
             _ => {}
         }
         
-        
         Ok(None)
     }
     
