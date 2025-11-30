@@ -6,7 +6,7 @@ use tracing::{debug, info};
 
 use crate::{
     action::Action,
-    components::{Component, fps::FpsCounter, home::Home, counter::Counter},
+    components::{Component, fps::FpsCounter, home::Home, counter::Counter, container::Container},
     config::Config,
     tui::{Event, Tui},
 };
@@ -33,10 +33,21 @@ pub enum Mode {
 impl App {
     pub fn new(tick_rate: f64, frame_rate: f64) -> color_eyre::Result<Self> {
         let (action_tx, action_rx) = mpsc::unbounded_channel();
+        
+        // Demonstrate children pattern: wrap Home and Counter in a Container
+        let mut main_container = Container::new("Main Container");
+        main_container.with_children(vec![
+            Box::new(Home::new()),
+            Box::new(FpsCounter::default()),
+            Box::new(Counter::default()),
+        ]);
+        
         Ok(Self {
             tick_rate,
             frame_rate,
-            components: vec![Box::new(Home::new()), Box::new(FpsCounter::default()), Box::new(Counter::default())],
+            components: vec![
+                Box::new(main_container),
+            ],
             should_quit: false,
             should_suspend: false,
             config: Config::new()?,

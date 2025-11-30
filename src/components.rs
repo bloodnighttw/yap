@@ -4,71 +4,13 @@ use ratatui::{
     layout::{Rect, Size},
 };
 use tokio::sync::mpsc::UnboundedSender;
-use tracing::debug;
 
 use crate::{action::Action, config::Config, tui::Event};
 
 pub mod fps;
 pub mod home;
 pub mod counter;
-
-/// A wrapper that provides automatic cleanup via Drop trait.
-/// Similar to React's component lifecycle, this ensures componentWillUnmount is called.
-pub struct ComponentWrapper<T: Component> {
-    component: T,
-    mounted: bool,
-}
-
-impl<T: Component> ComponentWrapper<T> {
-    pub fn new(component: T) -> Self {
-        Self {
-            component,
-            mounted: false,
-        }
-    }
-
-    pub fn mount(&mut self, area: Size) -> color_eyre::Result<()> {
-        if !self.mounted {
-            self.component.component_did_mount(area)?;
-            self.mounted = true;
-            debug!("Component mounted");
-        }
-        Ok(())
-    }
-
-    pub fn get_mut(&mut self) -> &mut T {
-        &mut self.component
-    }
-
-    pub fn is_mounted(&self) -> bool {
-        self.mounted
-    }
-}
-
-impl<T: Component> Drop for ComponentWrapper<T> {
-    fn drop(&mut self) {
-        if self.mounted {
-            debug!("Component unmounting, running cleanup");
-            if let Err(e) = self.component.component_will_unmount() {
-                eprintln!("Error during component cleanup: {}", e);
-            }
-        }
-    }
-}
-
-impl<T: Component> std::ops::Deref for ComponentWrapper<T> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        &self.component
-    }
-}
-
-impl<T: Component> std::ops::DerefMut for ComponentWrapper<T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.component
-    }
-}
+pub mod container;
 
 /// `Component` is a trait that represents a visual and interactive element of the user interface.
 ///
@@ -91,6 +33,16 @@ pub trait Component {
     fn constructor(&mut self, tx: UnboundedSender<Action>, config: Config) -> color_eyre::Result<()> {
         let _ = (tx, config); // to appease clippy
         Ok(())
+    }
+
+    /// Get mutable references to children components.
+    /// Similar to React's props.children. Override this to provide children.
+    ///
+    /// # Returns
+    ///
+    /// * `Vec<&mut Box<dyn Component>>` - Mutable references to child components.
+    fn children(&mut self) -> Vec<&mut Box<dyn Component>> {
+        Vec::new()
     }
 
     /// Called immediately after the component is mounted to the DOM.
@@ -118,6 +70,9 @@ pub trait Component {
     /// # Returns
     ///
     /// * `bool` - Whether the component should update.
+    /// currently always returns true.
+    /// when we switch to event-driven updates, we can make this more useful.
+    #[allow(dead_code)]
     fn should_component_update(&mut self, action: &Action) -> bool {
         let _ = action; // to appease clippy
         true
@@ -206,4 +161,57 @@ pub trait Component {
     ///
     /// * `Result<()>` - An Ok result or an error.
     fn render(&mut self, frame: &mut Frame, area: Rect) -> color_eyre::Result<()>;
+
+    /// Helper method to propagate constructor to all children.
+    /// Call this in your constructor if you have children.
+    fn init_children(&mut self, tx: UnboundedSender<Action>, config: Config) -> color_eyre::Result<()> {
+        for child in self.children().iter_mut() {
+            child.constructor(tx.clone(), config.clone())?;
+        }
+        Ok(())
+    }
+
+    /// Helper method to propagate mount to all children.
+    /// Call this in your component_did_mount if you have children.
+    fn mount_children(&mut self, area: Size) -> color_eyre::Result<()> {
+        for child in self.children().iter_mut() {
+            child.component_did_mount(area)?;
+        }
+        Ok(())
+    }
+
+    /// Helper method to propagate updates to all children.
+    /// Call this in your component_did_update if you have children.
+    fn update_children(&mut self, action: Action) -> color_eyre::Result<Vec<Action>> {
+        let mut actions = Vec::new();
+        for child in self.children().iter_mut() {
+            if child.should_component_update(&action) {
+                if let Some(new_action) = child.component_did_update(action.clone())? {
+                    actions.push(new_action);
+                }
+            }
+        }
+        Ok(actions)
+    }
+
+    /// Helper method to propagate events to all children.
+    /// Call this in your handle_events if you want children to receive events.
+    fn propagate_events(&mut self, event: Option<Event>) -> color_eyre::Result<Vec<Action>> {
+        let mut actions = Vec::new();
+        for child in self.children().iter_mut() {
+            if let Some(action) = child.handle_events(event.clone())? {
+                actions.push(action);
+            }
+        }
+        Ok(actions)
+    }
+
+    /// Helper method to propagate unmount to all children.
+    /// Call this in your component_will_unmount if you have children.
+    fn unmount_children(&mut self) -> color_eyre::Result<()> {
+        for child in self.children().iter_mut() {
+            child.component_will_unmount()?;
+        }
+        Ok(())
+    }
 }
