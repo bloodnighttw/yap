@@ -22,7 +22,7 @@ use tokio::{
     task::JoinHandle,
 };
 use tokio_util::sync::CancellationToken;
-use tracing::error;
+use tracing::{ debug, error };
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Event {
@@ -95,6 +95,7 @@ impl Tui {
             .send(Event::Init)
             .expect("failed to send init event");
         loop {
+            debug!("Waiting for event...");
             let event = tokio::select! {
                 _ = cancellation_token.cancelled() => {
                     break;
