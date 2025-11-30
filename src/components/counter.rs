@@ -1,4 +1,5 @@
 use ratatui::{text::Span};
+use tracing::{debug};
 
 use crate::components::Component;
 
@@ -23,12 +24,14 @@ impl Default for Counter {
 impl Component for Counter {
     
     fn handle_key_event(&mut self, key: crossterm::event::KeyEvent) -> color_eyre::Result<Option<crate::action::Action>> {
-        // if we press i, increase the valuem, when press e, decress
-        match key.code {
-            crossterm::event::KeyCode::Char('i') => {
+        use crossterm::event::{KeyCode, KeyModifiers};
+        debug!("Counter received key: {:?}, modifiers: {:?}", key.code, key.modifiers);
+        match (key.code, key.modifiers) {
+            (KeyCode::Char('h'), m) if m.contains(KeyModifiers::CONTROL) => {
+                // Debug: print what key we received
                 self.count += 1;
             }
-            crossterm::event::KeyCode::Char('e') => {
+            (KeyCode::Char('e'), m) if m.contains(KeyModifiers::CONTROL) => {
                 self.count -= 1;
             }
             _ => {}

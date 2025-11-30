@@ -130,16 +130,16 @@ impl App {
     }
 
     fn handle_lifecycle(&mut self, tui: &mut Tui) -> color_eyre::Result<()> {
-        while let Ok(action) = self.action_rx.try_recv() {
-            if action != Action::Tick && action != Action::Render {
-                debug!("{action:?}");
+        while let Ok(lifecycle) = self.action_rx.try_recv() {
+            if lifecycle != Action::Tick && lifecycle != Action::Render {
+                debug!("{lifecycle:?}");
             }
             for component in self.components.iter_mut() {
-                if let Some(action) = component.lifecycle(action.clone())? {
+                if let Some(action) = component.lifecycle(lifecycle.clone())? {
                     self.action_tx.send(action)?
                 };
             }
-            match action {
+            match lifecycle {
                 Action::Tick => {
                     self.last_tick_key_events.drain(..);
                 }
