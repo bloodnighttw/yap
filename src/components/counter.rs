@@ -41,7 +41,7 @@ impl Default for Counter {
 
 impl Component for Counter {
     fn component_will_mount(&mut self, tx: UnboundedSender<Action>, _config: Config) -> color_eyre::Result<()> {
-        info!("Counter::constructor - Initializing component");
+        info!("Counter::component_will_mount - Initializing component");
         self.action_tx = Some(tx);
         Ok(())
     }

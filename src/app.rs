@@ -61,6 +61,9 @@ impl App {
         for component in self.components.iter_mut() {
             component.component_will_mount(self.action_tx.clone(), self.config.clone())?;
         }
+        
+        // Initial render
+        self.action_tx.send(Action::Render)?;
 
         // React-like lifecycle: componentDidMount phase
         info!("Mounting components (componentDidMount phase)");
@@ -69,8 +72,6 @@ impl App {
             component.component_did_mount(size)?;
         }
 
-        // Initial render
-        self.action_tx.send(Action::Render)?;
 
         let action_tx = self.action_tx.clone();
         loop {
@@ -82,6 +83,8 @@ impl App {
                 action_tx.send(Action::ClearScreen)?;
                 // tui.mouse(true);
                 tui.enter()?;
+                // Trigger render after resume
+                action_tx.send(Action::Render)?;
             } else if self.should_quit {
                 tui.stop()?;
                 break;

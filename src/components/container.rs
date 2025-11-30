@@ -35,7 +35,7 @@ impl Container {
 
 impl Component for Container {
     fn component_will_mount(&mut self, tx: UnboundedSender<Action>, config: Config) -> color_eyre::Result<()> {
-        info!("Container::constructor - Initializing container '{}'", self.title);
+        info!("Container::component_will_mount - Initializing container '{}'", self.title);
         self.command_tx = Some(tx.clone());
         self.config = config.clone();
         
