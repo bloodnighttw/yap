@@ -54,14 +54,17 @@ impl App {
             .frame_rate(self.frame_rate);
         tui.enter()?;
 
+        // React-like lifecycle: constructor phase
+        info!("Initializing components (constructor phase)");
         for component in self.components.iter_mut() {
-            component.register_action_handler(self.action_tx.clone())?;
+            component.constructor(self.action_tx.clone(), self.config.clone())?;
         }
+
+        // React-like lifecycle: componentDidMount phase
+        info!("Mounting components (componentDidMount phase)");
+        let size = tui.size()?;
         for component in self.components.iter_mut() {
-            component.register_config_handler(self.config.clone())?;
-        }
-        for component in self.components.iter_mut() {
-            component.init(tui.size()?)?;
+            component.component_did_mount(size)?;
         }
 
         let action_tx = self.action_tx.clone();
@@ -79,6 +82,13 @@ impl App {
                 break;
             }
         }
+        
+        // React-like lifecycle: componentWillUnmount phase
+        info!("Unmounting components (componentWillUnmount phase)");
+        for component in self.components.iter_mut() {
+            component.component_will_unmount()?;
+        }
+        
         tui.exit()?;
         Ok(())
     }
@@ -130,16 +140,21 @@ impl App {
     }
 
     fn handle_lifecycle(&mut self, tui: &mut Tui) -> color_eyre::Result<()> {
-        while let Ok(lifecycle) = self.action_rx.try_recv() {
-            if lifecycle != Action::Tick && lifecycle != Action::Render {
-                debug!("{lifecycle:?}");
+        while let Ok(action) = self.action_rx.try_recv() {
+            if action != Action::Tick && action != Action::Render {
+                debug!("{action:?}");
             }
+            
+            // React-like lifecycle: shouldComponentUpdate + componentDidUpdate
             for component in self.components.iter_mut() {
-                if let Some(action) = component.lifecycle(lifecycle.clone())? {
-                    self.action_tx.send(action)?
-                };
+                if component.should_component_update(&action) {
+                    if let Some(new_action) = component.component_did_update(action.clone())? {
+                        self.action_tx.send(new_action)?;
+                    }
+                }
             }
-            match lifecycle {
+            
+            match action {
                 Action::Tick => {
                     self.last_tick_key_events.drain(..);
                 }
@@ -164,10 +179,11 @@ impl App {
     fn render(&mut self, tui: &mut Tui) -> color_eyre::Result<()> {
         tui.draw(|frame| {
             for component in self.components.iter_mut() {
-                if let Err(err) = component.draw(frame, frame.area()) {
+                // React-like lifecycle: render method
+                if let Err(err) = component.render(frame, frame.area()) {
                     let _ = self
                         .action_tx
-                        .send(Action::Error(format!("Failed to draw: {:?}", err)));
+                        .send(Action::Error(format!("Failed to render: {:?}", err)));
                 }
             }
         })?;

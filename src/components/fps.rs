@@ -7,6 +7,7 @@ use ratatui::{
     text::Span,
     widgets::Paragraph,
 };
+use tracing::info;
 
 use super::Component;
 
@@ -21,6 +22,9 @@ pub struct FpsCounter {
     last_frame_update: Instant,
     frame_count: u32,
     frames_per_second: f64,
+    
+    total_frames: u64,
+    total_ticks: u64,
 }
 
 impl Default for FpsCounter {
@@ -38,11 +42,14 @@ impl FpsCounter {
             last_frame_update: Instant::now(),
             frame_count: 0,
             frames_per_second: 0.0,
+            total_frames: 0,
+            total_ticks: 0,
         }
     }
 
     fn app_tick(&mut self) -> color_eyre::Result<()> {
         self.tick_count += 1;
+        self.total_ticks += 1;
         let now = Instant::now();
         let elapsed = (now - self.last_tick_update).as_secs_f64();
         if elapsed >= 1.0 {
@@ -55,6 +62,7 @@ impl FpsCounter {
 
     fn render_tick(&mut self) -> color_eyre::Result<()> {
         self.frame_count += 1;
+        self.total_frames += 1;
         let now = Instant::now();
         let elapsed = (now - self.last_frame_update).as_secs_f64();
         if elapsed >= 1.0 {
@@ -67,7 +75,22 @@ impl FpsCounter {
 }
 
 impl Component for FpsCounter {
-    fn lifecycle(&mut self, action: Action) -> color_eyre::Result<Option<Action>> {
+    fn component_did_mount(&mut self, area: ratatui::layout::Size) -> color_eyre::Result<()> {
+        info!("FpsCounter::componentDidMount - Component mounted with area: {:?}", area);
+        // Reset counters on mount
+        self.last_tick_update = Instant::now();
+        self.last_frame_update = Instant::now();
+        self.tick_count = 0;
+        self.frame_count = 0;
+        Ok(())
+    }
+
+    fn should_component_update(&mut self, action: &Action) -> bool {
+        // Only update for Tick and Render actions
+        matches!(action, Action::Tick | Action::Render)
+    }
+
+    fn component_did_update(&mut self, action: Action) -> color_eyre::Result<Option<Action>> {
         match action {
             Action::Tick => self.app_tick()?,
             Action::Render => self.render_tick()?,
@@ -76,7 +99,13 @@ impl Component for FpsCounter {
         Ok(None)
     }
 
-    fn draw(&mut self, frame: &mut Frame, area: Rect) -> color_eyre::Result<()> {
+    fn component_will_unmount(&mut self) -> color_eyre::Result<()> {
+        info!("FpsCounter::componentWillUnmount - Total frames: {}, Total ticks: {}", 
+              self.total_frames, self.total_ticks);
+        Ok(())
+    }
+
+    fn render(&mut self, frame: &mut Frame, area: Rect) -> color_eyre::Result<()> {
         let [top, _] = Layout::vertical([Constraint::Length(1), Constraint::Min(0)]).areas(area);
         let message = format!(
             "{:.2} ticks/sec, {:.2} FPS",
