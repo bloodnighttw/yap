@@ -27,19 +27,6 @@ impl Component for Home {
         Ok(())
     }
 
-    fn update(&mut self, action: Action) -> color_eyre::Result<Option<Action>> {
-        match action {
-            Action::Tick => {
-                // add any logic here that should run on every tick
-            }
-            Action::Render => {
-                // add any logic here that should run on every render
-            }
-            _ => {}
-        }
-        Ok(None)
-    }
-
     fn draw(&mut self, frame: &mut Frame, area: Rect) -> color_eyre::Result<()> {
         frame.render_widget(Paragraph::new("hello world"), area);
         Ok(())

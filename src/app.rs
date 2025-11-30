@@ -67,7 +67,7 @@ impl App {
         let action_tx = self.action_tx.clone();
         loop {
             self.handle_events(&mut tui).await?;
-            self.handle_actions(&mut tui)?;
+            self.handle_lifecycle(&mut tui)?;
             if self.should_suspend {
                 tui.suspend()?;
                 action_tx.send(Action::Resume)?;
@@ -129,10 +129,15 @@ impl App {
         Ok(())
     }
 
-    fn handle_actions(&mut self, tui: &mut Tui) -> color_eyre::Result<()> {
+    fn handle_lifecycle(&mut self, tui: &mut Tui) -> color_eyre::Result<()> {
         while let Ok(action) = self.action_rx.try_recv() {
             if action != Action::Tick && action != Action::Render {
                 debug!("{action:?}");
+            }
+            for component in self.components.iter_mut() {
+                if let Some(action) = component.lifecycle(action.clone())? {
+                    self.action_tx.send(action)?
+                };
             }
             match action {
                 Action::Tick => {
@@ -145,11 +150,6 @@ impl App {
                 Action::Resize(w, h) => self.handle_resize(tui, w, h)?,
                 Action::Render => self.render(tui)?,
                 _ => {}
-            }
-            for component in self.components.iter_mut() {
-                if let Some(action) = component.update(action.clone())? {
-                    self.action_tx.send(action)?
-                };
             }
         }
         Ok(())

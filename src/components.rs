@@ -107,7 +107,7 @@ pub trait Component {
     /// # Returns
     ///
     /// * `Result<Option<Action>>` - An action to be processed or none.
-    fn update(&mut self, action: Action) -> color_eyre::Result<Option<Action>> {
+    fn lifecycle(&mut self, action: Action) -> color_eyre::Result<Option<Action>> {
         let _ = action; // to appease clippy
         Ok(None)
     }
