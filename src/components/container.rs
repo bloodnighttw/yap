@@ -2,8 +2,8 @@ use ratatui::{prelude::*, widgets::*};
 use tokio::sync::mpsc::UnboundedSender;
 use tracing::info;
 
-use super::Component;
-use crate::{action::Action, config::Config, tui::Event};
+use super::{Children, Component};
+use crate::{framework::Action, config::Config, tui::Event};
 
 /// A container component that can hold and render children.
 /// Similar to a <div> in React that wraps other components.
@@ -33,6 +33,12 @@ impl Container {
     }
 }
 
+impl Children for Container {
+    fn children(&mut self) -> Vec<&mut Box<dyn Component>> {
+        self.children.iter_mut().collect()
+    }
+}
+
 impl Component for Container {
     fn component_will_mount(&mut self, tx: UnboundedSender<Action>, config: Config) -> color_eyre::Result<()> {
         info!("Container::component_will_mount - Initializing container '{}'", self.title);
@@ -50,10 +56,6 @@ impl Component for Container {
         // Mount all children
         self.mount_children(area)?;
         Ok(())
-    }
-
-    fn children(&mut self) -> Vec<&mut Box<dyn Component>> {
-        self.children.iter_mut().collect()
     }
 
     fn handle_events(&mut self, event: Option<Event>) -> color_eyre::Result<Option<Action>> {

@@ -3,12 +3,12 @@ use cli::Cli;
 
 use crate::app::App;
 
-mod action;
 mod app;
 mod cli;
 mod components;
 mod config;
 mod errors;
+mod framework;
 mod logging;
 mod tui;
 

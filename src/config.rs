@@ -10,7 +10,7 @@ use ratatui::style::{Color, Modifier, Style};
 use serde::{Deserialize, de::Deserializer};
 use tracing::error;
 
-use crate::{action::Action, app::Mode};
+use crate::{framework::Action, app::Mode};
 
 const CONFIG: &str = include_str!("../config.json5");
 

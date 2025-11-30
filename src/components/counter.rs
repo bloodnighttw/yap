@@ -2,7 +2,7 @@ use ratatui::{text::Span};
 use tokio::sync::mpsc::UnboundedSender;
 use tracing::{debug, info};
 
-use crate::{action::Action, components::Component, config::Config};
+use crate::{framework::Action, components::Component, config::Config};
 
 
 #[derive(Debug)]

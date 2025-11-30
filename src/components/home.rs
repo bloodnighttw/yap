@@ -3,7 +3,7 @@ use tokio::sync::mpsc::UnboundedSender;
 use tracing::info;
 
 use super::Component;
-use crate::{action::Action, config::Config};
+use crate::{framework::Action, config::Config};
 
 #[derive(Default)]
 pub struct Home {
