@@ -34,7 +34,7 @@ impl Container {
 }
 
 impl Component for Container {
-    fn constructor(&mut self, tx: UnboundedSender<Action>, config: Config) -> color_eyre::Result<()> {
+    fn component_will_mount(&mut self, tx: UnboundedSender<Action>, config: Config) -> color_eyre::Result<()> {
         info!("Container::constructor - Initializing container '{}'", self.title);
         self.command_tx = Some(tx.clone());
         self.config = config.clone();
@@ -54,20 +54,6 @@ impl Component for Container {
 
     fn children(&mut self) -> Vec<&mut Box<dyn Component>> {
         self.children.iter_mut().collect()
-    }
-
-    fn should_component_update(&mut self, action: &Action) -> bool {
-        // Container updates on any action, delegates to children
-        let _ = action;
-        true
-    }
-
-    fn component_did_update(&mut self, action: Action) -> color_eyre::Result<Option<Action>> {
-        // Propagate updates to children
-        let actions = self.update_children(action)?;
-        
-        // Return first action if any, or combine them
-        Ok(actions.into_iter().next())
     }
 
     fn handle_events(&mut self, event: Option<Event>) -> color_eyre::Result<Option<Action>> {

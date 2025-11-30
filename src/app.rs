@@ -6,20 +6,17 @@ use tracing::{debug, info};
 
 use crate::{
     action::Action,
-    components::{Component, fps::FpsCounter, home::Home, counter::Counter, container::Container},
+    components::{Component, home::Home, counter::Counter, container::Container},
     config::Config,
     tui::{Event, Tui},
 };
 
 pub struct App {
     config: Config,
-    tick_rate: f64,
-    frame_rate: f64,
     components: Vec<Box<dyn Component>>,
     should_quit: bool,
     should_suspend: bool,
     mode: Mode,
-    last_tick_key_events: Vec<KeyEvent>,
     action_tx: mpsc::UnboundedSender<Action>,
     action_rx: mpsc::UnboundedReceiver<Action>,
 }
@@ -31,20 +28,17 @@ pub enum Mode {
 }
 
 impl App {
-    pub fn new(tick_rate: f64, frame_rate: f64) -> color_eyre::Result<Self> {
+    pub fn new() -> color_eyre::Result<Self> {
         let (action_tx, action_rx) = mpsc::unbounded_channel();
         
         // Demonstrate children pattern: wrap Home and Counter in a Container
         let mut main_container = Container::new("Main Container");
         main_container.with_children(vec![
             Box::new(Home::new()),
-            Box::new(FpsCounter::default()),
             Box::new(Counter::default()),
         ]);
         
         Ok(Self {
-            tick_rate,
-            frame_rate,
             components: vec![
                 Box::new(main_container),
             ],
@@ -52,23 +46,20 @@ impl App {
             should_suspend: false,
             config: Config::new()?,
             mode: Mode::Home,
-            last_tick_key_events: Vec::new(),
             action_tx,
             action_rx,
         })
     }
 
     pub async fn run(&mut self) -> color_eyre::Result<()> {
-        let mut tui = Tui::new()?
-            // .mouse(true) // uncomment this line to enable mouse support
-            .tick_rate(self.tick_rate)
-            .frame_rate(self.frame_rate);
+        let mut tui = Tui::new()?;
+            // .mouse(true); // uncomment this line to enable mouse support
         tui.enter()?;
 
         // React-like lifecycle: constructor phase
         info!("Initializing components (constructor phase)");
         for component in self.components.iter_mut() {
-            component.constructor(self.action_tx.clone(), self.config.clone())?;
+            component.component_will_mount(self.action_tx.clone(), self.config.clone())?;
         }
 
         // React-like lifecycle: componentDidMount phase
@@ -77,6 +68,9 @@ impl App {
         for component in self.components.iter_mut() {
             component.component_did_mount(size)?;
         }
+
+        // Initial render
+        self.action_tx.send(Action::Render)?;
 
         let action_tx = self.action_tx.clone();
         loop {
@@ -111,8 +105,6 @@ impl App {
         let action_tx = self.action_tx.clone();
         match event {
             Event::Quit => action_tx.send(Action::Quit)?,
-            Event::Tick => action_tx.send(Action::Tick)?,
-            Event::Render => action_tx.send(Action::Render)?,
             Event::Resize(x, y) => action_tx.send(Action::Resize(x, y))?,
             Event::Key(key) => self.handle_key_event(key)?,
             _ => {}
@@ -130,45 +122,20 @@ impl App {
         let Some(keymap) = self.config.keybindings.get(&self.mode) else {
             return Ok(());
         };
-        match keymap.get(&vec![key]) {
-            Some(action) => {
-                info!("Got action: {action:?}");
-                action_tx.send(action.clone())?;
-            }
-            _ => {
-                // If the key was not handled as a single key action,
-                // then consider it for multi-key combinations.
-                self.last_tick_key_events.push(key);
-
-                // Check for multi-key combinations
-                if let Some(action) = keymap.get(&self.last_tick_key_events) {
-                    info!("Got action: {action:?}");
-                    action_tx.send(action.clone())?;
-                }
-            }
+        if let Some(action) = keymap.get(&vec![key]) {
+            info!("Got action: {action:?}");
+            action_tx.send(action.clone())?;
         }
         Ok(())
     }
 
     fn handle_lifecycle(&mut self, tui: &mut Tui) -> color_eyre::Result<()> {
         while let Ok(action) = self.action_rx.try_recv() {
-            if action != Action::Tick && action != Action::Render {
+            if action != Action::Render {
                 debug!("{action:?}");
             }
             
-            // React-like lifecycle: shouldComponentUpdate + componentDidUpdate
-            for component in self.components.iter_mut() {
-                if component.should_component_update(&action) {
-                    if let Some(new_action) = component.component_did_update(action.clone())? {
-                        self.action_tx.send(new_action)?;
-                    }
-                }
-            }
-            
             match action {
-                Action::Tick => {
-                    self.last_tick_key_events.drain(..);
-                }
                 Action::Quit => self.should_quit = true,
                 Action::Suspend => self.should_suspend = true,
                 Action::Resume => self.should_suspend = false,

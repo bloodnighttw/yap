@@ -18,7 +18,7 @@ impl Home {
 }
 
 impl Component for Home {
-    fn constructor(&mut self, tx: UnboundedSender<Action>, config: Config) -> color_eyre::Result<()> {
+    fn component_will_mount(&mut self, tx: UnboundedSender<Action>, config: Config) -> color_eyre::Result<()> {
         info!("Home::constructor - Initializing component");
         self.command_tx = Some(tx);
         self.config = config;
