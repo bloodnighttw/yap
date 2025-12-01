@@ -1,15 +1,13 @@
 use ratatui::{text::Span};
-use tokio::sync::mpsc::UnboundedSender;
 use tracing::{debug, info};
 
-use crate::{framework::Action, components::Component, config::Config};
+use crate::{components::Component, config::Config, framework::{Action, Updater}};
 
 
-#[derive(Debug)]
 pub struct Counter {
     count: i32,
     initial_count: i32,
-    action_tx: Option<UnboundedSender<Action>>,
+    updater: Option<Updater>
 }
 
 impl Counter {
@@ -17,7 +15,7 @@ impl Counter {
         Self { 
             count: 0,
             initial_count: 0,
-            action_tx: None,
+            updater: None,
         }
     }
 
@@ -25,8 +23,8 @@ impl Counter {
     fn set_count(&mut self, new_count: i32) {
         self.count = new_count;
         // Trigger re-render when state changes
-        if let Some(tx) = &self.action_tx {
-            let _ = tx.send(Action::Render);
+        if let Some(updater) = &self.updater {
+            updater.update();
         } else {
             unreachable!("Counter::set_count - action_tx is None, cannot trigger re-render, the component might not be mounted");
         }
@@ -40,15 +38,15 @@ impl Default for Counter {
 }
 
 impl Component for Counter {
-    fn component_will_mount(&mut self, tx: UnboundedSender<Action>, _config: Config) -> color_eyre::Result<()> {
+    fn component_will_mount(&mut self, _config: Config) -> color_eyre::Result<()> {
         info!("Counter::component_will_mount - Initializing component");
-        self.action_tx = Some(tx);
         Ok(())
     }
 
-    fn component_did_mount(&mut self, area: ratatui::layout::Size) -> color_eyre::Result<()> {
+    fn component_did_mount(&mut self, area: ratatui::layout::Size, updater: Updater) -> color_eyre::Result<()> {
         info!("Counter::componentDidMount - Component mounted with area: {:?}", area);
         self.initial_count = self.count;
+        self.updater = Some(updater);
         Ok(())
     }
     

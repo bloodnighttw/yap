@@ -1,13 +1,12 @@
 use ratatui::{prelude::*, widgets::*};
-use tokio::sync::mpsc::UnboundedSender;
 use tracing::info;
 
 use super::Component;
-use crate::{framework::Action, config::Config};
+use crate::{config::Config, framework::{Updater}};
 
 #[derive(Default)]
 pub struct Home {
-    command_tx: Option<UnboundedSender<Action>>,
+    updater: Option<Updater>,
     config: Config,
 }
 
@@ -18,15 +17,14 @@ impl Home {
 }
 
 impl Component for Home {
-    fn component_will_mount(&mut self, tx: UnboundedSender<Action>, config: Config) -> color_eyre::Result<()> {
+    fn component_will_mount(&mut self, config: Config) -> color_eyre::Result<()> {
         info!("Home::component_will_mount - Initializing component");
-        self.command_tx = Some(tx);
         self.config = config;
         Ok(())
     }
 
-    fn component_did_mount(&mut self, area: ratatui::layout::Size) -> color_eyre::Result<()> {
-        info!("Home::componentDidMount - Component mounted with area: {:?}", area);
+    fn component_did_mount(&mut self, _area: ratatui::layout::Size, updater: Updater) -> color_eyre::Result<()> {
+        self.updater = Some(updater);
         Ok(())
     }
 

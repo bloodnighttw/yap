@@ -3,12 +3,12 @@ use tokio::sync::mpsc::UnboundedSender;
 use tracing::info;
 
 use super::{Children, Component};
-use crate::{framework::Action, config::Config, tui::Event};
+use crate::{config::Config, framework::{Action, Updater}, tui::Event};
 
 /// A container component that can hold and render children.
 /// Similar to a <div> in React that wraps other components.
 pub struct Container {
-    command_tx: Option<UnboundedSender<Action>>,
+    updater: Option<Updater>,
     config: Config,
     children: Vec<Box<dyn Component>>,
     title: String,
@@ -18,7 +18,7 @@ pub struct Container {
 impl Container {
     pub fn new(title: impl Into<String>) -> Self {
         Self {
-            command_tx: None,
+            updater: None,
             config: Config::default(),
             children: Vec::new(),
             title: title.into(),
@@ -40,21 +40,20 @@ impl Children for Container {
 }
 
 impl Component for Container {
-    fn component_will_mount(&mut self, tx: UnboundedSender<Action>, config: Config) -> color_eyre::Result<()> {
+    fn component_will_mount(&mut self, config: Config) -> color_eyre::Result<()> {
         info!("Container::component_will_mount - Initializing container '{}'", self.title);
-        self.command_tx = Some(tx.clone());
         self.config = config.clone();
         
         // Initialize all children
-        self.init_children(tx, config)?;
+        self.children_will_mount(config)?;
         Ok(())
     }
 
-    fn component_did_mount(&mut self, area: ratatui::layout::Size) -> color_eyre::Result<()> {
+    fn component_did_mount(&mut self, area: ratatui::layout::Size, updater: Updater) -> color_eyre::Result<()> {
         info!("Container::componentDidMount - Container '{}' mounted with area: {:?}", self.title, area);
-        
+        self.updater = Some(updater.clone());
         // Mount all children
-        self.mount_children(area)?;
+        self.children_did_mount(area, updater)?;
         Ok(())
     }
 

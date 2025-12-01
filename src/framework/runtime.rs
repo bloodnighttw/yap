@@ -5,9 +5,7 @@ use tracing::{debug, info};
 
 use super::{action::Action, components::Component};
 use crate::{
-    app::Mode,
-    config::Config,
-    tui::{Event, Tui},
+    app::Mode, config::Config, framework::Updater, tui::{Event, Tui}
 };
 
 /// Runtime manages the execution of components and handles the application lifecycle.
@@ -55,20 +53,22 @@ impl Runtime {
         // React-like lifecycle: constructor phase
         info!("Initializing components (constructor phase)");
         for component in self.components.iter_mut() {
-            component.component_will_mount(self.action_tx.clone(), self.config.clone())?;
+            component.component_will_mount(self.config.clone())?;
         }
         
         // Initial render
         self.action_tx.send(Action::Render)?;
+        let updater = Updater::new(self.action_tx.clone());
 
         // React-like lifecycle: componentDidMount phase
         info!("Mounting components (componentDidMount phase)");
         let size = tui.size()?;
         for component in self.components.iter_mut() {
-            component.component_did_mount(size)?;
+            component.component_did_mount(size, updater.clone())?;
         }
 
         let action_tx = self.action_tx.clone();
+        
         loop {
             self.handle_events(&mut tui).await?;
             self.handle_lifecycle(&mut tui)?;

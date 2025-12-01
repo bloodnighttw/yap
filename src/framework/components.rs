@@ -3,10 +3,9 @@ use ratatui::{
     Frame,
     layout::{Rect, Size},
 };
-use tokio::sync::mpsc::UnboundedSender;
 
 use super::action::Action;
-use crate::{config::Config, tui::Event};
+use crate::{config::Config, framework::Updater, tui::Event};
 
 /// `Component` is a trait that represents a visual and interactive element of the user interface.
 ///
@@ -16,18 +15,18 @@ use crate::{config::Config, tui::Event};
 /// This trait follows React-like lifecycle methods for predictable component behavior.
 pub trait Component {
     /// Called once when the component is first created, before mounting.
-    /// Similar to React's constructor. Use this to initialize state.
+    /// you should initialize any component here, because this is called only once.
+    /// and you will need to progregate the component lifecycle to any children here as well.
     ///
     /// # Arguments
     ///
-    /// * `tx` - An unbounded sender that can send actions.
     /// * `config` - Configuration settings.
     ///
     /// # Returns
     ///
     /// * `Result<()>` - An Ok result or an error.
-    fn component_will_mount(&mut self, tx: UnboundedSender<Action>, config: Config) -> color_eyre::Result<()> {
-        let _ = (tx, config); // to appease clippy
+    fn component_will_mount(&mut self,config: Config) -> color_eyre::Result<()> {
+        let _ = config; // to appease clippy
         Ok(())
     }
 
@@ -37,12 +36,14 @@ pub trait Component {
     /// # Arguments
     ///
     /// * `area` - Rectangular area the component is mounted within.
+    /// * `updater` - An updater that can be used to trigger re-renders, the component can only be
+    /// update after mounting, so this is provided here.
     ///
     /// # Returns
     ///
     /// * `Result<()>` - An Ok result or an error.
-    fn component_did_mount(&mut self, area: Size) -> color_eyre::Result<()> {
-        let _ = area; // to appease clippy
+    fn component_did_mount(&mut self, area: Size, updater: Updater) -> color_eyre::Result<()> {
+        let _ = (area, updater); // to appease clippy
         Ok(())
     }
 

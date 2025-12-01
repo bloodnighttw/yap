@@ -1,8 +1,7 @@
 use ratatui::layout::Size;
-use tokio::sync::mpsc::UnboundedSender;
 
 use super::{action::Action, components::Component};
-use crate::{config::Config, tui::Event};
+use crate::{config::Config, framework::Updater, tui::Event};
 
 /// `Children` trait provides React-like children functionality for components.
 ///
@@ -21,18 +20,18 @@ pub trait Children {
 
     /// Helper method to propagate constructor to all children.
     /// Call this in your component_will_mount if you have children.
-    fn init_children(&mut self, tx: UnboundedSender<Action>, config: Config) -> color_eyre::Result<()> {
+    fn children_will_mount(&mut self, config: Config) -> color_eyre::Result<()> {
         for child in self.children().iter_mut() {
-            child.component_will_mount(tx.clone(), config.clone())?;
+            child.component_will_mount(config.clone())?;
         }
         Ok(())
     }
 
     /// Helper method to propagate mount to all children.
     /// Call this in your component_did_mount if you have children.
-    fn mount_children(&mut self, area: Size) -> color_eyre::Result<()> {
+    fn children_did_mount(&mut self, area: Size, updater: Updater) -> color_eyre::Result<()> {
         for child in self.children().iter_mut() {
-            child.component_did_mount(area)?;
+            child.component_did_mount(area, updater.clone())?;
         }
         Ok(())
     }
