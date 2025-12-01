@@ -1,5 +1,4 @@
 use ratatui::{prelude::*, widgets::*};
-use tokio::sync::mpsc::UnboundedSender;
 use tracing::info;
 
 use super::{Children, Component};
