@@ -44,13 +44,11 @@ impl Runtime {
     /// 1. Initialize TUI
     /// 2. Mount components (component_will_mount, component_did_mount)
     /// 3. Run event loop (handle events, process actions, render)
-    /// 4. Unmount components (component_will_unmount)
     /// 5. Cleanup TUI
     pub async fn run(&mut self) -> color_eyre::Result<()> {
         let mut tui = Tui::new()?;
         tui.enter()?;
 
-        // React-like lifecycle: constructor phase
         info!("Initializing components (constructor phase)");
         for component in self.components.iter_mut() {
             component.component_will_mount(self.config.clone())?;
@@ -60,7 +58,6 @@ impl Runtime {
         self.action_tx.send(Action::Render)?;
         let updater = Updater::new(self.action_tx.clone());
 
-        // React-like lifecycle: componentDidMount phase
         info!("Mounting components (componentDidMount phase)");
         let size = tui.size()?;
         for component in self.components.iter_mut() {

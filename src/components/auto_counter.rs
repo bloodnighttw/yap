@@ -4,22 +4,12 @@ use std::{sync::{Arc, atomic::{AtomicU64, Ordering}}, time::Duration};
 
 use crate::framework::Updater;
 
+#[derive(Default)]
 pub struct AutoCounter {
     count: Arc<AtomicU64>,
     updater: Option<Updater>,
     task_handle: Option<tokio::task::JoinHandle<()>>,
 }
-
-impl AutoCounter {
-    pub fn new() -> Self {
-        Self {
-            count: Arc::new(AtomicU64::new(0)),
-            updater: None,
-            task_handle: None,
-        }
-    }
-}
-
 
 impl crate::framework::Component for AutoCounter {
     fn component_will_mount(&mut self, _config: crate::config::Config) -> color_eyre::Result<()> {

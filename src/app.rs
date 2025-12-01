@@ -29,9 +29,9 @@ impl App {
         // Demonstrate children pattern: wrap Home and Counter in a Container
         let mut main_container = Container::new("Main Container");
         main_container.with_children(vec![
-            Box::new(Home::new()),
+            Box::new(Home::default()),
             Box::new(Counter::default()),
-            Box::new(AutoCounter::new())
+            Box::new(AutoCounter::default())
         ]);
         
         let components: Vec<Box<dyn crate::framework::Component>> = vec![

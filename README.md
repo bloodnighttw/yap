@@ -13,37 +13,114 @@ This framework implements a React-like component lifecycle with the following ph
 ```rust
 pub trait Component {
     // 1. Component Will Mount - called once when component is created, before mounting
-    fn component_will_mount(&mut self, tx: UnboundedSender<Action>, config: Config) -> Result<()>
+    //    Initialize component state, setup children
+    fn component_will_mount(&mut self, config: Config) -> Result<()>
     
-    // 2. Component Did Mount - called after component is mounted
-    fn component_did_mount(&mut self, area: Size) -> Result<()>
+    // 2. Component Did Mount - called after first render, provides Updater for triggering re-renders
+    fn component_did_mount(&mut self, area: Size, updater: Updater) -> Result<()>
     
-    // 3. Handle Events - called when events occur
+    // 3. Handle Events - called when user input or system events occur
     fn handle_events(&mut self, event: Option<Event>) -> Result<Option<Action>>
+    fn handle_key_event(&mut self, key: KeyEvent) -> Result<Option<Action>>
+    fn handle_mouse_event(&mut self, mouse: MouseEvent) -> Result<Option<Action>>
     
-    // 4. Render - called when Action::Render is received
+    // 4. Render - called when UI needs to be drawn (REQUIRED)
     fn render(&mut self, frame: &mut Frame, area: Rect) -> Result<()>
-    
-    // 5. Component Will Unmount - called before component is destroyed
-    fn component_will_unmount(&mut self) -> Result<()>
 }
 ```
 
-### Lifecycle Flow
+### Component Lifecycle Flow
 
 ```mermaid
 flowchart TD
-    Start([Component Created]) --> WillMount[component_will_mount<br/>Store action_tx & config]
-    WillMount --> DidMount[component_did_mount<br/>Component is now mounted]
-    DidMount --> Active{Component Active}
+    Start([Component Created]) --> Runtime[Runtime::new<br/>Create component vector]
+    Runtime --> RunStart[Runtime::run starts]
+    RunStart --> TuiInit[TUI Initialize & Enter]
     
-    Active -->|Event occurs| HandleEvents[handle_events<br/>Process user input]
-    HandleEvents -->|State changes| SetState[Call action_tx.send Render]
-    SetState -->|Action::Render| Render[render<br/>Draw to screen]
-    Render --> Active
+    TuiInit --> WillMount[component_will_mount<br/>runtime.rs:56<br/>Pass config, initialize state]
+    WillMount --> InitRender[Send Action::Render<br/>runtime.rs:60]
+    InitRender --> CreateUpdater[Create Updater<br/>runtime.rs:61]
     
-    Active -->|App closing| WillUnmount[component_will_unmount<br/>Cleanup resources]
-    WillUnmount --> End([Component Destroyed])
+    CreateUpdater --> DidMount[component_did_mount<br/>runtime.rs:67<br/>Pass size & updater]
+    DidMount --> EventLoop{Event Loop<br/>tokio::select!}
+    
+    EventLoop -->|TUI Event| ProcessEvent[process_event<br/>runtime.rs:79]
+    ProcessEvent --> HandleEvent[component.handle_events<br/>runtime.rs:131]
+    HandleEvent -->|Returns Action?| ActionQueue[Send to action_tx]
+    
+    EventLoop -->|Async Action| ActionReceived[action_rx.recv<br/>runtime.rs:91]
+    
+    ActionQueue --> HandleLifecycle[handle_lifecycle<br/>runtime.rs:82/94<br/>Process all pending actions]
+    ActionReceived --> HandleLifecycle
+    
+    HandleLifecycle -->|Action::Render| RenderCall[render components<br/>runtime.rs:169/185]
+    HandleLifecycle -->|Action::Resize| ResizeHandle[handle_resize<br/>runtime.rs:166]
+    HandleLifecycle -->|Action::Quit| SetQuit[should_quit = true]
+    HandleLifecycle -->|Action::Suspend| SetSuspend[should_suspend = true]
+    
+    RenderCall --> ComponentRender[component.render<br/>runtime.rs:189<br/>Draw to terminal]
+    ResizeHandle --> RenderCall
+    ComponentRender --> EventLoop
+    
+    EventLoop -->|should_quit| Cleanup[Cleanup Phase]
+    Cleanup --> TuiExit[tui.exit<br/>runtime.rs:116]
+    TuiExit --> End([Runtime Ends])
+    
+    style WillMount fill:#e1f5ff
+    style DidMount fill:#e1f5ff
+    style HandleEvent fill:#fff4e1
+    style ComponentRender fill:#ffe1f5
+    style EventLoop fill:#f0f0f0
+```
+
+### Detailed Event Processing Flow
+
+```mermaid
+sequenceDiagram
+    participant U as User Input
+    participant T as TUI
+    participant R as Runtime
+    participant C as Component
+    participant A as Action Channel
+    
+    Note over R: Initialization Phase
+    R->>C: component_will_mount(config)
+    C-->>R: Ok()
+    R->>A: Send Action::Render
+    R->>C: component_did_mount(size, updater)
+    C-->>R: Ok()
+    
+    Note over R,T: Event Loop (tokio::select!)
+    
+    U->>T: Key Press / Mouse Event
+    T->>R: next_event() returns Event
+    R->>R: process_event(event)
+    R->>C: handle_events(Some(event))
+    C->>C: handle_key_event / handle_mouse_event
+    
+    alt Component needs re-render
+        C-->>R: Some(Action::Render)
+        R->>A: Send action to channel
+    else No action needed
+        C-->>R: None
+    end
+    
+    R->>R: handle_lifecycle() - drain action_rx
+    
+    loop For each pending action
+        A-->>R: Receive action
+        alt Action::Render
+            R->>C: render(frame, area)
+            C->>T: Draw widgets to frame
+        else Action::Resize
+            R->>R: handle_resize(w, h)
+            R->>C: render(frame, area)
+        else Action::Quit
+            R->>R: should_quit = true
+        end
+    end
+    
+    Note over R: Loop continues until should_quit
 ```
 
 ### setState Pattern

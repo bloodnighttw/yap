@@ -10,12 +10,6 @@ pub struct Home {
     config: Config,
 }
 
-impl Home {
-    pub fn new() -> Self {
-        Self::default()
-    }
-}
-
 impl Component for Home {
     fn component_will_mount(&mut self, config: Config) -> color_eyre::Result<()> {
         info!("Home::component_will_mount - Initializing component");
