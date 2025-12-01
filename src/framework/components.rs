@@ -30,7 +30,7 @@ pub trait Component {
         Ok(())
     }
 
-    /// Called immediately after the component is mounted to the DOM.
+    /// Called immediately after the component is created and (first) rendered on the screen.
     /// Similar to React's componentDidMount. Use this for initialization that requires DOM or side effects.
     ///
     /// # Arguments

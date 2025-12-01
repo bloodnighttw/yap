@@ -70,8 +70,35 @@ impl Runtime {
         let action_tx = self.action_tx.clone();
         
         loop {
-            self.handle_events(&mut tui).await?;
-            self.handle_lifecycle(&mut tui)?;
+            // Tickless implementation: wait for either an event or an action
+            // This ensures we only wake up when there's actual work to do
+            tokio::select! {
+                // Wait for input events from TUI
+                Some(event) = tui.next_event() => {
+                    // Handle the event
+                    self.process_event(event)?;
+                    
+                    // Process any actions that were generated
+                    let had_actions = self.handle_lifecycle(&mut tui)?;
+                    
+                    // Render if there were changes
+                    if had_actions {
+                        self.render(&mut tui)?;
+                    }
+                }
+                
+                // Also check for actions that may come from async tasks
+                Some(action) = self.action_rx.recv() => {
+                    // Put the action back and process all pending actions
+                    self.action_tx.send(action)?;
+                    let had_actions = self.handle_lifecycle(&mut tui)?;
+                    
+                    // Render if there were changes
+                    if had_actions {
+                        self.render(&mut tui)?;
+                    }
+                }
+            }
             
             if self.should_suspend {
                 tui.suspend()?;
@@ -79,7 +106,7 @@ impl Runtime {
                 action_tx.send(Action::ClearScreen)?;
                 tui.enter()?;
                 // Trigger render after resume
-                action_tx.send(Action::Render)?;
+                self.render(&mut tui)?;
             } else if self.should_quit {
                 tui.stop()?;
                 break;
@@ -90,29 +117,22 @@ impl Runtime {
         Ok(())
     }
 
-    async fn handle_events(&mut self, tui: &mut Tui) -> color_eyre::Result<()> {
-        // Add a timeout so we don't block forever waiting for events
-        // This allows background tasks to trigger renders
-        let event = tokio::time::timeout(
-            std::time::Duration::from_millis(20),
-            tui.next_event()
-        ).await;
-        
-        let Some(event) = event.ok().flatten() else {
-            return Ok(());
-        };
+    fn process_event(&mut self, event: Event) -> color_eyre::Result<()> {
         let action_tx = self.action_tx.clone();
+        
         match event {
             Event::Quit => action_tx.send(Action::Quit)?,
             Event::Resize(x, y) => action_tx.send(Action::Resize(x, y))?,
             Event::Key(key) => self.handle_key_event(key)?,
             _ => {}
         }
+        
         for component in self.components.iter_mut() {
             if let Some(action) = component.handle_events(Some(event.clone()))? {
                 action_tx.send(action)?;
             }
         }
+        
         Ok(())
     }
 
@@ -128,8 +148,12 @@ impl Runtime {
         Ok(())
     }
 
-    fn handle_lifecycle(&mut self, tui: &mut Tui) -> color_eyre::Result<()> {
+    fn handle_lifecycle(&mut self, tui: &mut Tui) -> color_eyre::Result<bool> {
+        let mut had_actions = false;
+        
         while let Ok(action) = self.action_rx.try_recv() {
+            had_actions = true;
+            
             if action != Action::Render {
                 debug!("{action:?}");
             }
@@ -140,11 +164,16 @@ impl Runtime {
                 Action::Resume => self.should_suspend = false,
                 Action::ClearScreen => tui.terminal.clear()?,
                 Action::Resize(w, h) => self.handle_resize(tui, w, h)?,
-                Action::Render => self.render(tui)?,
+                Action::Render => {
+                    // Render action is explicit, so render immediately
+                    self.render(tui)?;
+                    had_actions = false; // Don't trigger another render
+                }
                 _ => {}
             }
         }
-        Ok(())
+        
+        Ok(had_actions)
     }
 
     fn handle_resize(&mut self, tui: &mut Tui, w: u16, h: u16) -> color_eyre::Result<()> {
