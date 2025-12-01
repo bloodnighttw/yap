@@ -91,7 +91,14 @@ impl Runtime {
     }
 
     async fn handle_events(&mut self, tui: &mut Tui) -> color_eyre::Result<()> {
-        let Some(event) = tui.next_event().await else {
+        // Add a timeout so we don't block forever waiting for events
+        // This allows background tasks to trigger renders
+        let event = tokio::time::timeout(
+            std::time::Duration::from_millis(20),
+            tui.next_event()
+        ).await;
+        
+        let Some(event) = event.ok().flatten() else {
             return Ok(());
         };
         let action_tx = self.action_tx.clone();
