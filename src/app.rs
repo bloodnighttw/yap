@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    components::{auto_counter::AutoCounter, container::Container, counter::Counter, home::Home},
+    components::{auto_counter::AutoCounter, container::Container, counter::Counter, home::Home, random_text::RandomText},
     config::Config,
     framework::Runtime,
 };
@@ -31,7 +31,8 @@ impl App {
         main_container.with_children(vec![
             Box::new(Home::default()),
             Box::new(Counter::default()),
-            Box::new(AutoCounter::default())
+            Box::new(AutoCounter::default()),
+            Box::new(RandomText::default())
         ]);
         
         let components: Vec<Box<dyn crate::framework::Component>> = vec![
