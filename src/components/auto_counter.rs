@@ -12,9 +12,6 @@ pub struct AutoCounter {
 }
 
 impl crate::framework::Component for AutoCounter {
-    fn component_will_mount(&mut self, _config: crate::config::Config) -> color_eyre::Result<()> {
-        Ok(())
-    }
 
     fn component_did_mount(&mut self, _area: ratatui::layout::Size, updater: Updater) -> color_eyre::Result<()> {
         self.updater = Some(updater.clone());
