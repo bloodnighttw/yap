@@ -30,21 +30,8 @@ impl Component for Home {
         Ok(())
     }
 
-    fn component_will_unmount(&mut self) -> color_eyre::Result<()> {
-        info!("Home::componentWillUnmount - Cleaning up resources");
-        // Drop the sender to signal shutdown
-        self.command_tx = None;
-        Ok(())
-    }
-
     fn render(&mut self, frame: &mut Frame, area: Rect) -> color_eyre::Result<()> {
         frame.render_widget(Paragraph::new("hello world"), area);
         Ok(())
-    }
-}
-
-impl Drop for Home {
-    fn drop(&mut self) {
-        info!("Home::drop - Component being dropped");
     }
 }

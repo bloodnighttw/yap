@@ -86,12 +86,6 @@ impl Runtime {
             }
         }
         
-        // React-like lifecycle: componentWillUnmount phase
-        info!("Unmounting components (componentWillUnmount phase)");
-        for component in self.components.iter_mut() {
-            component.component_will_unmount()?;
-        }
-        
         tui.exit()?;
         Ok(())
     }

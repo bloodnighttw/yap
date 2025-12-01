@@ -46,16 +46,6 @@ pub trait Component {
         Ok(())
     }
 
-    /// Called immediately before the component is unmounted and destroyed.
-    /// Similar to React's componentWillUnmount. Use this for cleanup.
-    ///
-    /// # Returns
-    ///
-    /// * `Result<()>` - An Ok result or an error.
-    fn component_will_unmount(&mut self) -> color_eyre::Result<()> {
-        Ok(())
-    }
-
     /// Handle incoming events and produce actions if necessary.
     ///
     /// # Arguments

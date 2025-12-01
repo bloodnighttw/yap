@@ -66,18 +66,6 @@ impl Component for Container {
         Ok(actions.into_iter().next())
     }
 
-    fn component_will_unmount(&mut self) -> color_eyre::Result<()> {
-        info!("Container::componentWillUnmount - Cleaning up container '{}'", self.title);
-        
-        // Unmount all children first
-        self.unmount_children()?;
-        
-        // Drop the sender to signal shutdown
-        self.command_tx = None;
-        Ok(())
-    }
-    
-
     fn render(&mut self, frame: &mut Frame, area: Rect) -> color_eyre::Result<()> {
         // Create a block with border for the container
         let block = Block::default()
@@ -107,11 +95,5 @@ impl Component for Container {
         }
         
         Ok(())
-    }
-}
-
-impl Drop for Container {
-    fn drop(&mut self) {
-        info!("Container::drop - Container '{}' being dropped", self.title);
     }
 }

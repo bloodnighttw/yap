@@ -51,13 +51,6 @@ impl Component for Counter {
         self.initial_count = self.count;
         Ok(())
     }
-
-    fn component_will_unmount(&mut self) -> color_eyre::Result<()> {
-        info!("Counter::componentWillUnmount - Final count: {}, changed by: {}", 
-              self.count, self.count - self.initial_count);
-        self.action_tx = None;
-        Ok(())
-    }
     
     fn handle_key_event(&mut self, key: crossterm::event::KeyEvent) -> color_eyre::Result<Option<Action>> {
         use crossterm::event::{KeyCode, KeyModifiers};

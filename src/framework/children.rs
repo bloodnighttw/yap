@@ -49,12 +49,4 @@ pub trait Children {
         Ok(actions)
     }
 
-    /// Helper method to propagate unmount to all children.
-    /// Call this in your component_will_unmount if you have children.
-    fn unmount_children(&mut self) -> color_eyre::Result<()> {
-        for child in self.children().iter_mut() {
-            child.component_will_unmount()?;
-        }
-        Ok(())
-    }
 }
