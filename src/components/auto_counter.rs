@@ -5,6 +5,7 @@ use std::{sync::{Arc, atomic::{AtomicU64, Ordering}}, time::Duration};
 use crate::framework::Updater;
 
 #[derive(Default)]
+#[allow(dead_code)]
 pub struct AutoCounter {
     count: Arc<AtomicU64>,
     updater: Option<Updater>,

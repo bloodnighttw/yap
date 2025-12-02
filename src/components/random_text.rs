@@ -4,10 +4,13 @@ use std::collections::hash_map::RandomState;
 use crate::framework::Updater;
 
 #[derive(Default)]
+#[allow(dead_code)]
 pub struct RandomText {
     task_handle: Option<tokio::task::JoinHandle<()>>,
 }
 
+
+#[allow(dead_code)]
 struct SimpleRng {
     state: u64,
 }

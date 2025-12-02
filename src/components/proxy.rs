@@ -2,14 +2,13 @@ use std::collections::VecDeque;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tracing::{info, error, warn};
+use tracing::{info, error};
 use hyper::server::conn::http1;
 use hyper::service::service_fn;
 use hyper::{Request, Response, body::Incoming, StatusCode, Method};
 use hyper_util::rt::TokioIo;
 use tokio::net::TcpListener;
-use http_body_util::{Empty, Full, BodyExt};
+use http_body_util::{Full, BodyExt};
 use hyper::body::Bytes;
 use chrono::{DateTime, Utc};
 
@@ -69,62 +68,6 @@ impl Proxy {
         // Trigger UI update
         if let Some(updater) = updater {
             let _ = updater.update();
-        }
-    }
-
-    async fn handle_connect(
-        req: Request<Incoming>,
-        mut stream: tokio::net::TcpStream,
-        logs: SharedLogs,
-        updater: Option<Updater>,
-    ) {
-        let uri = req.uri().to_string();
-        info!("CONNECT to {}", uri);
-        
-        // Log the CONNECT request
-        Self::log_request("CONNECT", &uri, logs, &updater).await;
-
-        // Parse the host and port
-        let host_port = uri.split(':').collect::<Vec<&str>>();
-        if host_port.len() != 2 {
-            error!("Invalid CONNECT URI: {}", uri);
-            return;
-        }
-
-        let host = host_port[0];
-        let port = host_port[1];
-
-        // Connect to the target server
-        let target_addr = format!("{}:{}", host, port);
-        let mut target_stream = match tokio::net::TcpStream::connect(&target_addr).await {
-            Ok(stream) => stream,
-            Err(e) => {
-                error!("Failed to connect to {}: {}", target_addr, e);
-                let _ = stream.write_all(b"HTTP/1.1 502 Bad Gateway\r\n\r\n").await;
-                return;
-            }
-        };
-
-        // Send 200 Connection Established
-        if let Err(e) = stream.write_all(b"HTTP/1.1 200 Connection Established\r\n\r\n").await {
-            error!("Failed to send CONNECT response: {}", e);
-            return;
-        }
-
-        // Tunnel data between client and target
-        let (mut client_read, mut client_write) = stream.split();
-        let (mut target_read, mut target_write) = target_stream.split();
-
-        let client_to_target = tokio::io::copy(&mut client_read, &mut target_write);
-        let target_to_client = tokio::io::copy(&mut target_read, &mut client_write);
-
-        match tokio::try_join!(client_to_target, target_to_client) {
-            Ok((bytes_to_target, bytes_to_client)) => {
-                info!("Tunnel closed: {} bytes to target, {} bytes to client", bytes_to_target, bytes_to_client);
-            }
-            Err(e) => {
-                warn!("Tunnel error: {}", e);
-            }
         }
     }
 

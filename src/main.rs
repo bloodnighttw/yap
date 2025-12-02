@@ -12,7 +12,7 @@ mod framework;
 mod logging;
 mod tui;
 
-#[tokio::main]
+#[tokio::main(flavor = "current_thread")]
 async fn main() -> color_eyre::Result<()> {
     crate::errors::init()?;
     crate::logging::init()?;

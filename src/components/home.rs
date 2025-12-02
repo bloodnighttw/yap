@@ -5,6 +5,7 @@ use super::Component;
 use crate::{config::Config, framework::{Updater}};
 
 #[derive(Default)]
+#[allow(dead_code)]
 pub struct Home {
     updater: Option<Updater>,
     config: Config,

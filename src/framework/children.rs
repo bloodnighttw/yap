@@ -7,6 +7,7 @@ use crate::{config::Config, framework::Updater, tui::Event};
 ///
 /// This trait allows components to contain and manage child components,
 /// similar to how React components can have children through props.children.
+#[allow(dead_code)]
 pub trait Children {
     /// Get mutable references to children components.
     /// Similar to React's props.children. Override this to provide children.

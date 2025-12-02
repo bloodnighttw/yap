@@ -14,6 +14,7 @@ pub struct Container {
     border_style: Style,
 }
 
+#[allow(dead_code)]
 impl Container {
     pub fn new(title: impl Into<String>) -> Self {
         Self {

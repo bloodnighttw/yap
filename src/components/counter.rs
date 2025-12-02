@@ -3,13 +3,15 @@ use tracing::{debug, info};
 
 use crate::{components::Component, config::Config, framework::{Action, Updater}};
 
-
+#[allow(dead_code)]
 pub struct Counter {
     count: i32,
     initial_count: i32,
     updater: Option<Updater>
 }
 
+
+#[allow(dead_code)]
 impl Counter {
     pub fn new() -> Self {
         Self { 
