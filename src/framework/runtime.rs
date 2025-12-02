@@ -85,9 +85,6 @@ impl Runtime {
             tracing::info!("Event loop");
 
             if stop {
-                tui.stop()?;
-                // cleanup and exit
-                tui.clear()?;
                 break;
             }
         }
@@ -151,7 +148,7 @@ impl Runtime {
                     suspend = true;
                 }
                 Action::Resume => {
-                    resume = false;
+                    resume = true;
                 }
                 Action::Resize(w, h) => {
                     resize = Some((w, h));
@@ -167,26 +164,25 @@ impl Runtime {
         if quit {
             return Ok(true);
         }
-        
+
         if let Some((w, h)) = resize {
             self.handle_resize(tui, w, h)?;
         }
 
-        if need_render {
-            self.render(tui)?;
+        if suspend {
+            tui.suspend()?;
+            // wait until resume
+            self.action_tx.send(Action::Resume)?;
         }
 
         if resume {
-            tui.clear()?;
-            tui.enter()?;
             tui.resume()?;
+            tui.clear()?;
             self.render(tui)?;
         }
 
-        if suspend {
-            tui.suspend()?;
-            // wait unitl resume
-            self.action_tx.send(Action::Resume)?;
+        if need_render {
+            self.render(tui)?;
         }
 
         Ok(false)
