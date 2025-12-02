@@ -39,6 +39,10 @@ strum = { version = "0.26.3", features = ["derive"] }
 tokio = { version = "1.40.0", features = ["full"] }
 tokio-util = "0.7.12"
 tracing = "0.1.40"
+hyper = { version = "1.5.1", features = ["server", "http1", "http2"] }
+hyper-util = { version = "0.1.10", features = ["tokio", "server", "server-auto", "client", "client-legacy"] }
+http-body-util = "0.1.2"
+chrono = "0.4.38"
 tracing-error = "0.2.0"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter", "serde"] }
 

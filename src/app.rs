@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    components::{auto_counter::AutoCounter, container::Container, counter::Counter, home::Home, random_text::RandomText},
+    components::{proxy::Proxy, proxy_list::ProxyList},
     config::Config,
     framework::Runtime,
 };
@@ -26,17 +26,16 @@ impl App {
     }
 
     pub async fn run(&mut self) -> color_eyre::Result<()> {
-        // Demonstrate children pattern: wrap Home and Counter in a Container
-        let mut main_container = Container::new("Main Container");
-        main_container.with_children(vec![
-            Box::new(Home::default()),
-            Box::new(Counter::default()),
-            Box::new(AutoCounter::default()),
-            Box::new(RandomText::default())
-        ]);
+        // Create the proxy component and get shared logs
+        let proxy = Proxy::default();
+        let logs = proxy.get_logs();
+        
+        // Create the proxy list UI component with shared logs
+        let proxy_list = ProxyList::new(logs);
         
         let components: Vec<Box<dyn crate::framework::Component>> = vec![
-            Box::new(main_container),
+            Box::new(proxy),
+            Box::new(proxy_list),
         ];
         
         // Create and run the runtime
