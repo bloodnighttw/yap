@@ -8,7 +8,5 @@ pub enum Action {
     Suspend,
     Resume,
     Quit,
-    ClearScreen,
     Error(String),
-    Help,
 }

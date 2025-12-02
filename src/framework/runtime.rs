@@ -1,3 +1,4 @@
+use color_eyre::eyre::Ok;
 use crossterm::event::KeyEvent;
 use ratatui::prelude::Rect;
 use tokio::sync::mpsc;
@@ -5,7 +6,10 @@ use tracing::{debug, info};
 
 use super::{action::Action, components::Component};
 use crate::{
-    app::Mode, config::Config, framework::Updater, tui::{Event, Tui}
+    app::Mode,
+    config::Config,
+    framework::Updater,
+    tui::{Event, Tui},
 };
 
 /// Runtime manages the execution of components and handles the application lifecycle.
@@ -14,8 +18,6 @@ use crate::{
 /// the lifecycle events, event processing, and rendering.
 pub struct Runtime {
     components: Vec<Box<dyn Component>>,
-    should_quit: bool,
-    should_suspend: bool,
     action_tx: mpsc::UnboundedSender<Action>,
     action_rx: mpsc::UnboundedReceiver<Action>,
     config: Config,
@@ -26,11 +28,9 @@ impl Runtime {
     /// Create a new Runtime with the given components and configuration.
     pub fn new(components: Vec<Box<dyn Component>>, config: Config, mode: Mode) -> Self {
         let (action_tx, action_rx) = mpsc::unbounded_channel();
-        
+
         Self {
             components,
-            should_quit: false,
-            should_suspend: false,
             action_tx,
             action_rx,
             config,
@@ -53,7 +53,7 @@ impl Runtime {
         for component in self.components.iter_mut() {
             component.component_will_mount(self.config.clone())?;
         }
-        
+
         // Initial render
         self.action_tx.send(Action::Render)?;
         let updater = Updater::new(self.action_tx.clone());
@@ -64,72 +64,54 @@ impl Runtime {
             component.component_did_mount(size, updater.clone())?;
         }
 
-        let action_tx = self.action_tx.clone();
-        
+        // a tickless event loop
         loop {
-            // Tickless implementation: wait for either an event or an action
-            // This ensures we only wake up when there's actual work to do
-            tokio::select! {
+            let stop = tokio::select! {
                 // Wait for input events from TUI
                 Some(event) = tui.next_event() => {
                     // Handle the event
                     self.process_event(event)?;
-                    
-                    // Process any actions that were generated
-                    let had_actions = self.handle_lifecycle(&mut tui)?;
-                    
-                    // Render if there were changes
-                    if had_actions {
-                        self.render(&mut tui)?;
-                    }
+                    Ok(false)
                 }
-                
+
                 // Also check for actions that may come from async tasks
                 Some(action) = self.action_rx.recv() => {
                     // Put the action back and process all pending actions
-                    self.action_tx.send(action)?;
-                    let had_actions = self.handle_lifecycle(&mut tui)?;
-                    
-                    // Render if there were changes
-                    if had_actions {
-                        self.render(&mut tui)?;
-                    }
+                    let stop = self.batch_actions(&mut tui, action)?;
+                    Ok(stop)
                 }
-            }
-            
-            if self.should_suspend {
-                tui.suspend()?;
-                action_tx.send(Action::Resume)?;
-                action_tx.send(Action::ClearScreen)?;
-                tui.enter()?;
-                // Trigger render after resume
-                self.render(&mut tui)?;
-            } else if self.should_quit {
+            }?;
+
+            tracing::info!("Event loop");
+
+            if stop {
                 tui.stop()?;
+                // cleanup and exit
+                tui.clear()?;
                 break;
             }
         }
-        
+
         tui.exit()?;
         Ok(())
     }
 
     fn process_event(&mut self, event: Event) -> color_eyre::Result<()> {
         let action_tx = self.action_tx.clone();
-        
+
         match event {
             Event::Quit => action_tx.send(Action::Quit)?,
             Event::Resize(x, y) => action_tx.send(Action::Resize(x, y))?,
             Event::Key(key) => self.handle_key_event(key)?,
             _ => {}
         }
-        
+
         for component in self.components.iter_mut() {
             if let Some(action) = component.handle_events(Some(event.clone()))? {
                 action_tx.send(action)?;
             }
         }
-        
+
         Ok(())
     }
 
@@ -145,32 +127,69 @@ impl Runtime {
         Ok(())
     }
 
-    fn handle_lifecycle(&mut self, tui: &mut Tui) -> color_eyre::Result<bool> {
-        let mut had_actions = false;
-        
-        while let Ok(action) = self.action_rx.try_recv() {
-            had_actions = true;
-            
+    // if the batch result is to stopped rendering and exit, return true
+    fn batch_actions(&mut self, tui: &mut Tui, action: Action) -> color_eyre::Result<bool> {
+        let mut resize: Option<(u16, u16)> = match action {
+            Action::Resize(w, h) => Some((w, h)),
+            _ => None,
+        };
+        let mut need_render = action == Action::Render;
+        let quit = action == Action::Quit;
+        let mut suspend = action == Action::Suspend;
+        let mut resume = action == Action::Resume;
+
+        while let Result::Ok(action) = self.action_rx.try_recv() {
             if action != Action::Render {
                 debug!("{action:?}");
             }
-            
+
             match action {
-                Action::Quit => self.should_quit = true,
-                Action::Suspend => self.should_suspend = true,
-                Action::Resume => self.should_suspend = false,
-                Action::ClearScreen => tui.terminal.clear()?,
-                Action::Resize(w, h) => self.handle_resize(tui, w, h)?,
+                Action::Quit => {
+                    return Ok(true);
+                }
+                Action::Suspend => {
+                    suspend = true;
+                }
+                Action::Resume => {
+                    resume = false;
+                }
+                Action::Resize(w, h) => {
+                    resize = Some((w, h));
+                }
                 Action::Render => {
                     // Render action is explicit, so render immediately
-                    self.render(tui)?;
-                    had_actions = false; // Don't trigger another render
+                    need_render = true;
                 }
                 _ => {}
             }
         }
+
+        if quit {
+            return Ok(true);
+        }
         
-        Ok(had_actions)
+        if let Some((w, h)) = resize {
+            self.handle_resize(tui, w, h)?;
+        }
+
+        if need_render {
+            self.render(tui)?;
+        }
+
+        if resume {
+            tui.clear()?;
+            tui.enter()?;
+            tui.resume()?;
+            self.render(tui)?;
+        }
+
+        if suspend {
+            tui.suspend()?;
+            // wait unitl resume
+            self.action_tx.send(Action::Resume)?;
+        }
+
+        Ok(false)
     }
 
     fn handle_resize(&mut self, tui: &mut Tui, w: u16, h: u16) -> color_eyre::Result<()> {
@@ -182,7 +201,6 @@ impl Runtime {
     fn render(&mut self, tui: &mut Tui) -> color_eyre::Result<()> {
         tui.draw(|frame| {
             for component in self.components.iter_mut() {
-                // React-like lifecycle: render method
                 if let Err(err) = component.render(frame, frame.area()) {
                     let _ = self
                         .action_tx
@@ -192,5 +210,4 @@ impl Runtime {
         })?;
         Ok(())
     }
-
 }
