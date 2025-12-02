@@ -51,7 +51,7 @@ impl crate::framework::Component for RandomText {
     ) -> color_eyre::Result<()> {
         self.task_handle = Some(tokio::spawn(async move {
             loop {
-                tokio::time::sleep(std::time::Duration::from_millis(2)).await;
+                tokio::time::sleep(std::time::Duration::from_millis(2000)).await;
                 updater.update();
             }
         }));
