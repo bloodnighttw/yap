@@ -26,16 +26,16 @@ impl App {
     }
 
     pub async fn run(&mut self) -> color_eyre::Result<()> {
-        // // Create the proxy component and get shared logs
-        // let proxy = Proxy::default();
-        // let logs = proxy.get_logs();
+        // Create the proxy component and get shared logs
+        let proxy = Proxy::default();
+        let logs = proxy.get_logs();
         
         // // Create the proxy list UI component with shared logs
-        // let proxy_list = ProxyList::new(logs);
+        let proxy_list = ProxyList::new(logs);
         
         let components: Vec<Box<dyn crate::framework::Component>> = vec![
-            // Box::new(proxy),
-            // Box::new(proxy_list),
+            Box::new(proxy),
+            Box::new(proxy_list),
             Box::new(Counter::default()),
         ];
         
