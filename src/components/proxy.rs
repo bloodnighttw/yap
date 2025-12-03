@@ -16,10 +16,12 @@ use super::Component;
 use crate::{config::Config, framework::Updater};
 
 #[derive(Clone, Debug)]
+#[allow(dead_code)]
 pub struct HttpLog {
     pub method: String,
     pub uri: String,
     pub timestamp: DateTime<Utc>,
+    pub path: String,
 }
 
 pub type SharedLogs = Arc<RwLock<VecDeque<HttpLog>>>;
@@ -39,6 +41,7 @@ impl Default for Proxy {
     }
 }
 
+#[allow(dead_code)]
 impl Proxy {
     pub fn get_logs(&self) -> SharedLogs {
         self.logs.clone()
@@ -55,6 +58,7 @@ impl Proxy {
         // Store the log
         {
             let mut logs_guard = logs.write().await;
+            let id = uri.to_string();
             if logs_guard.len() >= 10 {
                 logs_guard.pop_front();
             }
@@ -62,6 +66,7 @@ impl Proxy {
                 method: method.to_string(),
                 uri: uri.to_string(),
                 timestamp,
+                path: id,
             });
         }
 
