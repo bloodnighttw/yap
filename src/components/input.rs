@@ -3,13 +3,13 @@ use color_eyre::eyre::Ok;
 use crate::framework::{Action, Component, Updater};
 
 #[derive(Clone, Default, Debug)]
-pub struct Filter {
+pub struct Input {
     hostname: String,
     cursor_position: usize,
     updater: Option<Updater>,
 }
 
-impl Component for Filter {
+impl Component for Input {
     fn component_did_mount(
         &mut self,
         _area: ratatui::prelude::Size,

@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    components::{proxy::Proxy, filter::Filter},
+    components::{proxy::Proxy, input::Input},
     config::Config,
     framework::Runtime,
 };
@@ -28,7 +28,7 @@ impl App {
     pub async fn run(&mut self) -> color_eyre::Result<()> {
         // Create the proxy component and get shared logs
         let proxy = Proxy::default();
-        let filter = Filter::default();
+        let filter = Input::default();
         
         
         let components: Vec<Box<dyn crate::framework::Component>> = vec![
