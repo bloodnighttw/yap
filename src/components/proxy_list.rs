@@ -82,7 +82,7 @@ impl Component for ProxyList {
         let list = List::new(items)
             .block(
                 Block::default()
-                    .title("HTTP Proxy Log (Last 10 requests on port 9999)")
+                    .title("HTTP Proxy Log (Last 100 requests on port 9999)")
                     .borders(Borders::ALL)
                     .border_style(Style::default().fg(Color::Cyan)),
             )
