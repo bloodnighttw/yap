@@ -171,8 +171,8 @@ impl Proxy {
     async fn save_request_to_file(
         method: &str,
         uri: &str,
-        headers: &hyper::HeaderMap,
-        body: Option<&Bytes>,
+        _headers: &hyper::HeaderMap,
+        _body: Option<&Bytes>,
         response_status: u16,
         response_headers: &hyper::HeaderMap,
         response_body: &Bytes,
@@ -192,30 +192,12 @@ impl Proxy {
         
         let is_binary = Self::is_binary_content(content_type);
         
-        // Create the file content
+        // Create the log content
         let mut content = String::new();
-        content.push_str("=== HTTP Request ===\n");
+        content.push_str("=== HTTP Response ===\n");
         content.push_str(&format!("Timestamp: {}\n", timestamp.to_rfc3339()));
         content.push_str(&format!("Method: {}\n", method));
-        content.push_str(&format!("URI: {}\n\n", uri));
-        
-        content.push_str("Request Headers:\n");
-        for (name, value) in headers.iter() {
-            if let Ok(value_str) = value.to_str() {
-                content.push_str(&format!("  {}: {}\n", name, value_str));
-            }
-        }
-        content.push_str("\n");
-        
-        if let Some(body) = body {
-            if !body.is_empty() {
-                content.push_str("Request Body:\n");
-                content.push_str(&String::from_utf8_lossy(body));
-                content.push_str("\n\n");
-            }
-        }
-        
-        content.push_str("=== HTTP Response ===\n");
+        content.push_str(&format!("URI: {}\n", uri));
         content.push_str(&format!("Status: {}\n\n", response_status));
         
         content.push_str("Response Headers:\n");
@@ -227,7 +209,23 @@ impl Proxy {
         content.push_str("\n");
         
         if is_binary {
-            content.push_str(&format!("Response Body: [Binary data, {} bytes]\n", response_body.len()));
+            // Save binary data to a separate file
+            let binary_file_path = file_path.with_extension("bin");
+            let mut binary_file = OpenOptions::new()
+                .create(true)
+                .write(true)
+                .truncate(true)
+                .open(&binary_file_path)
+                .await?;
+            
+            binary_file.write_all(response_body).await?;
+            binary_file.flush().await?;
+            
+            content.push_str("Response Body:\n");
+            content.push_str(&format!("[Binary data stored in: {}]\n", binary_file_path.display()));
+            content.push_str(&format!("Size: {} bytes\n", response_body.len()));
+            
+            info!("Saved binary data to: {}", binary_file_path.display());
         } else {
             content.push_str("Response Body:\n");
             if response_body.is_empty() {
@@ -237,7 +235,7 @@ impl Proxy {
             }
         }
         
-        // Write to file
+        // Write log to file
         let mut file = OpenOptions::new()
             .create(true)
             .write(true)
