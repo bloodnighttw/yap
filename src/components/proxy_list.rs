@@ -182,11 +182,22 @@ impl Component for ProxyList {
                 .collect()
         };
 
+        let old_items_len = self.items_len;
         self.items_len = items.len();
         
-        // Ensure selected_index is within bounds
-        if self.selected_index >= self.items_len && self.items_len > 0 {
+        // Auto-scroll to bottom if user was at the bottom and new items were added
+        let was_at_bottom = old_items_len > 0 && self.selected_index == old_items_len.saturating_sub(1);
+        if was_at_bottom && self.items_len > old_items_len {
             self.selected_index = self.items_len.saturating_sub(1);
+            // Update scroll to keep selection visible
+            if self.items_len > self.visible_height {
+                self.scroll_offset = self.items_len.saturating_sub(self.visible_height);
+            }
+        } else {
+            // If not at bottom, just ensure selected_index is within bounds
+            if self.selected_index >= self.items_len && self.items_len > 0 {
+                self.selected_index = self.items_len.saturating_sub(1);
+            }
         }
         
         // Update scroll state based on content length

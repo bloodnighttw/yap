@@ -44,22 +44,37 @@ impl Component for Input {
             match key.code {
                 crossterm::event::KeyCode::Char(c) => {
                     self.hostname.insert(self.cursor_position, c);
-                    self.cursor_position += 1;
+                    self.cursor_position += c.len_utf8();
                 }
                 crossterm::event::KeyCode::Backspace => {
                     if self.cursor_position > 0 {
-                        self.hostname.remove(self.cursor_position - 1);
-                        self.cursor_position -= 1;
+                        // Find the previous character boundary
+                        let mut new_pos = self.cursor_position - 1;
+                        while new_pos > 0 && !self.hostname.is_char_boundary(new_pos) {
+                            new_pos -= 1;
+                        }
+                        self.hostname.remove(new_pos);
+                        self.cursor_position = new_pos;
                     }
                 }
                 crossterm::event::KeyCode::Left => {
                     if self.cursor_position > 0 {
-                        self.cursor_position -= 1;
+                        // Move to previous character boundary
+                        let mut new_pos = self.cursor_position.saturating_sub(1);
+                        while new_pos > 0 && !self.hostname.is_char_boundary(new_pos) {
+                            new_pos -= 1;
+                        }
+                        self.cursor_position = new_pos;
                     }
                 }
                 crossterm::event::KeyCode::Right => {
                     if self.cursor_position < self.hostname.len() {
-                        self.cursor_position += 1;
+                        // Move to next character boundary
+                        let mut new_pos = self.cursor_position + 1;
+                        while new_pos < self.hostname.len() && !self.hostname.is_char_boundary(new_pos) {
+                            new_pos += 1;
+                        }
+                        self.cursor_position = new_pos.min(self.hostname.len());
                     }
                 }
                 crossterm::event::KeyCode::Home => {

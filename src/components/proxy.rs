@@ -38,7 +38,7 @@ pub struct Proxy {
 impl Default for Proxy {
     fn default() -> Self {
         Self {
-            logs: Arc::new(RwLock::new(VecDeque::with_capacity(100))),
+            logs: Arc::new(RwLock::new(VecDeque::with_capacity(10000))),
             updater: None,
         }
     }
@@ -62,7 +62,7 @@ impl Proxy {
         {
             let mut logs_guard = logs.write().await;
             let id = uri.to_string();
-            if logs_guard.len() >= 100 {
+            if logs_guard.len() >= 10000 {
                 logs_guard.pop_front();
             }
             logs_guard.push_back(HttpLog {
