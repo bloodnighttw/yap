@@ -1,3 +1,6 @@
+use std::sync::Arc;
+use tokio::sync::RwLock;
+
 use crate::{
     components::{input::Input, proxy::Proxy, proxy_list::ProxyList},
     framework::{Children, Component},
@@ -9,11 +12,16 @@ pub struct Layout {
 
 impl Default for Layout {
     fn default() -> Self {
-        let input = Input::default();
+        // Create shared filter state
+        let filter = Arc::new(RwLock::new(String::new()));
+        
         // Create the proxy component and get shared logs
         let proxy = Proxy::default();
         let log = proxy.get_logs();
-        let proxy_list = ProxyList::new(log);
+        
+        // Create components with shared state
+        let input = Input::new(filter.clone());
+        let proxy_list = ProxyList::new(log, filter);
 
         Self {
             children: vec![

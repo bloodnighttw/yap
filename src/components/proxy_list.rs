@@ -1,10 +1,14 @@
 use ratatui::{prelude::*, widgets::*};
 use tracing::info;
 use crossterm::event::{KeyCode, KeyEvent};
+use std::sync::Arc;
+use tokio::sync::RwLock;
 
 use super::Component;
 use super::proxy::{SharedLogs, Proxy};
 use crate::{config::Config, framework::{Updater, Action}};
+
+pub type SharedFilter = Arc<RwLock<String>>;
 
 pub struct ProxyList {
     logs: SharedLogs,
@@ -15,10 +19,11 @@ pub struct ProxyList {
     items_len: usize,
     show_popup: bool,
     visible_height: usize,
+    filter: SharedFilter,
 }
 
 impl ProxyList {
-    pub fn new(logs: SharedLogs) -> Self {
+    pub fn new(logs: SharedLogs, filter: SharedFilter) -> Self {
         Self {
             logs,
             updater: None,
@@ -28,6 +33,7 @@ impl ProxyList {
             items_len: 0,
             show_popup: false,
             visible_height: 10,
+            filter,
         }
     }
 
@@ -77,8 +83,6 @@ impl Component for ProxyList {
                         self.scroll_offset = self.selected_index.saturating_sub(self.visible_height.saturating_sub(1));
                     }
                     
-                    self.scroll_state = self.scroll_state.position(self.scroll_offset);
-                    
                     // Trigger re-render
                     if let Some(updater) = &self.updater {
                         updater.update();
@@ -95,8 +99,6 @@ impl Component for ProxyList {
                     if self.selected_index < self.scroll_offset {
                         self.scroll_offset = self.selected_index;
                     }
-                    
-                    self.scroll_state = self.scroll_state.position(self.scroll_offset);
                     
                     // Trigger re-render
                     if let Some(updater) = &self.updater {
@@ -142,14 +144,38 @@ impl Component for ProxyList {
             vec![]
         };
         
-        // Create list items from logs snapshot
-        let items: Vec<ListItem> = if logs_snapshot.is_empty() {
+        // Get the current filter value
+        let filter_value = if let Ok(filter) = self.filter.try_read() {
+            filter.clone()
+        } else {
+            String::new()
+        };
+        
+        // Filter logs based on hostname (if filter is not empty)
+        let filtered_logs: Vec<_> = if filter_value.is_empty() {
+            logs_snapshot
+        } else {
+            logs_snapshot
+                .into_iter()
+                .filter(|log| {
+                    // Extract hostname from URI and check if it contains the filter
+                    log.uri.to_lowercase().contains(&filter_value.to_lowercase())
+                })
+                .collect()
+        };
+        
+        // Create list items from filtered logs
+        let items: Vec<ListItem> = if filtered_logs.is_empty() {
             vec![ListItem::new(Line::from(Span::styled(
-                "Waiting for requests...",
+                if filter_value.is_empty() {
+                    "Waiting for requests..."
+                } else {
+                    "No matching requests found..."
+                },
                 Style::default().fg(Color::Gray),
             )))]
         } else {
-            logs_snapshot
+            filtered_logs
                 .iter()
                 .enumerate()
                 .map(|(idx, log)| {
@@ -200,8 +226,11 @@ impl Component for ProxyList {
             }
         }
         
-        // Update scroll state based on content length
-        self.scroll_state = self.scroll_state.content_length(self.items_len.saturating_sub(1));
+        // Update scroll state based on content length and current position
+        // The scrollbar position should reflect where we are in the content
+        self.scroll_state = self.scroll_state
+            .content_length(self.items_len.saturating_sub(self.visible_height).max(0))
+            .position(self.scroll_offset);
         
         // Create the list widget with stateful rendering
         let list = List::new(items)
@@ -237,7 +266,7 @@ impl Component for ProxyList {
         
         // Render popup if needed
         if self.show_popup {
-            self.render_popup(frame, area, &logs_snapshot)?;
+            self.render_popup(frame, area, &filtered_logs)?;
         }
         
         Ok(())

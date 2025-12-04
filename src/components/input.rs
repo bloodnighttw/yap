@@ -1,12 +1,39 @@
 use color_eyre::eyre::Ok;
+use std::sync::Arc;
+use tokio::sync::RwLock;
 
 use crate::framework::{Action, Component, Updater};
 
-#[derive(Clone, Default, Debug)]
+pub type SharedFilter = Arc<RwLock<String>>;
+
+#[derive(Clone, Debug)]
 pub struct Input {
     hostname: String,
     cursor_position: usize,
     updater: Option<Updater>,
+    filter: Option<SharedFilter>,
+}
+
+impl Default for Input {
+    fn default() -> Self {
+        Self {
+            hostname: String::new(),
+            cursor_position: 0,
+            updater: None,
+            filter: None,
+        }
+    }
+}
+
+impl Input {
+    pub fn new(filter: SharedFilter) -> Self {
+        Self {
+            hostname: String::new(),
+            cursor_position: 0,
+            updater: None,
+            filter: Some(filter),
+        }
+    }
 }
 
 impl Component for Input {
@@ -40,11 +67,14 @@ impl Component for Input {
     ) -> color_eyre::Result<Option<crate::framework::Action>> {
         // when push any key without modifier, add the character to the hostname
         // When push backspace, remove the last character from the hostname
+        let mut filter_changed = false;
+        
         if key.modifiers.is_empty() {
             match key.code {
                 crossterm::event::KeyCode::Char(c) => {
                     self.hostname.insert(self.cursor_position, c);
                     self.cursor_position += c.len_utf8();
+                    filter_changed = true;
                 }
                 crossterm::event::KeyCode::Backspace => {
                     if self.cursor_position > 0 {
@@ -55,6 +85,7 @@ impl Component for Input {
                         }
                         self.hostname.remove(new_pos);
                         self.cursor_position = new_pos;
+                        filter_changed = true;
                     }
                 }
                 crossterm::event::KeyCode::Left => {
@@ -86,11 +117,25 @@ impl Component for Input {
                 crossterm::event::KeyCode::Delete => {
                     if self.cursor_position < self.hostname.len() {
                         self.hostname.remove(self.cursor_position);
+                        filter_changed = true;
                     }
                 }
                 _ => {}
             }
         }
+        
+        // Update the shared filter if it changed
+        if filter_changed {
+            let filter = self.filter.clone();
+            let hostname = self.hostname.clone();
+            tokio::spawn(async move {
+                if let Some(filter) = filter {
+                    let mut filter_guard = filter.write().await;
+                    *filter_guard = hostname;
+                }
+            });
+        }
+        
         Ok(Action::Render.into())
     }
 }
