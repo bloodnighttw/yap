@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    components::{input::Input, layout::Layout, proxy::Proxy},
+    components::{layout::Layout},
     config::Config,
     framework::Runtime,
 };
@@ -26,7 +26,6 @@ impl App {
     }
 
     pub async fn run(&mut self) -> color_eyre::Result<()> {
-        
         
         let components: Vec<Box<dyn crate::framework::Component>> = vec![
             Box::new(Layout::default())

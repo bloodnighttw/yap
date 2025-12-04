@@ -1,5 +1,5 @@
 // Re-export framework traits for convenience
-pub use crate::framework::{Children, Component};
+pub use crate::framework::{Component};
 
 pub mod home;
 pub mod counter;
