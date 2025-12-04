@@ -108,7 +108,7 @@ impl Proxy {
         Ok(())
     }
 
-    fn uri_to_file_path(uri: &str) -> PathBuf {
+    pub fn uri_to_file_path(uri: &str) -> PathBuf {
         // Parse the URI to extract hostname and path
         let parsed = match url::Url::parse(uri) {
             Ok(url) => url,
